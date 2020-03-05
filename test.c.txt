@@ -1,0 +1,156 @@
+//#include "st,32fl0x_gpio.h"
+	
+#define GPIO_PORT_I2C	GPIOA/GPIOB/GPIOC/GPIOD			/* GPIO端口 */
+#define I2C_SCL_1()  GPIO_PORT_I2C->BSRR = I2C_SCL_PIN				/* SCL = 1 */ //操作 BSRR寄存器 输出高电平
+#define I2C_SCL_0()  GPIO_PORT_I2C->BRR =  I2C_SCL_PIN				/* SCL = 0 */ //操作 BRR寄存器  输出低电平
+
+#define I2C_SDA_1()  GPIO_PORT_I2C->BSRR = I2C_SDA_PIN				/* SDA = 1 */
+#define I2C_SDA_0()  GPIO_PORT_I2C->BRR = I2C_SDA_PIN				/* SDA = 0 */
+#define I2C_SCL_PIN		GPIO_Pin_1			/* 连接到SCL时钟线的GPIO */
+#define I2C_SDA_PIN		GPIO_Pin_2			/* 连接到SDA数据线的GPIO */
+
+void I2CDelay(void)
+{
+		uint8_t i =0;
+	 for(i=0; i<10; i++);
+}
+/*起始信号*/
+void I2CStart(void)
+{
+		I2C_SCL_1();
+		//I2CDelay();
+		I2C_SDA_1();
+		I2CDelay();//大于4.7us
+		I2C_SCL_0();
+		I2CDelay();
+		I2C_SDA_0();
+		I2CDelay();
+		printf("I2C通信开始\r\n");
+}
+/*停止信号*/
+void I2CStop()
+{
+		I2C_SDA_0();
+		I2C_SCL_1();
+		I2CDelay();
+		I2C_SDA_1();
+		I2CDelay();	
+		printf("I2C通信停止\r\n");
+}
+
+void I2CSendByte(uint8_t uByte)//发送字节
+{
+		uint8_t i =0;
+		for(i = 0; i<8; i++)
+	{
+			if(uByte&0x80)
+			{
+				I2C_SDA_1();
+			}
+			else
+			{
+				I2C_SDA_0();
+			}
+			I2CDelay();
+			I2C_SCL_1();
+			I2CDelay();
+			I2C_SCL_0();
+			if(i == 7)
+			{
+				I2C_SDA_1();//一个字节发送完成后，释放总线，等待应答
+			}
+			uByte <<= 1;
+			I2CDelay();
+	}
+	printf("字节发送成功\r\n");
+}
+uint8_t I2CReadByte() //读取字节
+{
+		uint8_t i =0;
+		uint8_t data = 0;
+		I2C_SDA_1();//释放总线
+		I2CDelay();
+		for(i =0; i<8; i++)
+	{
+			I2C_SCL_1();
+			data <<= 1;
+			data |= I2C_SDA_1();
+			I2CDelay();		
+			I2C_SCL_0();
+			I2CDelay();	
+	}
+	printf("主设备接收完成\r\n");
+		return data;
+}
+
+//有效应答信号
+void I2C_ACK(void)
+{
+	I2C_SDA_0; //cpu驱动SDA = 0,即应答信号低电平时，表示成功接收该字节
+	Delay(10);
+	I2C_SCL_1;
+	Delay(10);
+	I2C_SDA_1;//释放总线
+}
+//非有效应答信号
+void I2C_Nack(void)
+{
+	I2C_SDA_1；//应答信号高电平，表示接收字节不成功
+	Delay(10);
+	I2C_SCL_1;
+	Delay(10);
+	I2C_SCL_0;
+	Delay(10);
+}
+
+/等待应答信号,0表示成功应答，1表示器件无应答
+uint8_t I2C_WaitACK()
+{
+	uint8_t ack = 0;
+	I2C_SDA_1;//释放总线
+	Delay(10)；
+	I2C_SCL_1;
+	Delay(10);
+	if(I2C_SDA_READ)//cpu读取SDA线的状态
+	{
+		ack =1;	
+	}
+	else
+	{
+		ack = 0;
+	}
+	I2C_SCL_0;
+	Delay(10);
+	return ack;
+}
+传送器件地址ID_Address，器件地址的最后一位为数据的传输方向位，R/W，低电平0表示主机往从机写数据（W），1表示主机从从机读数据（R）
+
+
+//重定向c函数库printf函数到串口，重定向后可使用printf函数
+int fputc(int ch, FILE *f)
+{
+		USART_SendData(DEBUG_USARTx, (uint8_t) ch);//发送数据到串口
+		//等待发送完毕
+		while (USART_GetFlagStatus(DEBUG_USARTx, USART_FLAG_TXE) == RESET);
+		return ch;	
+}
+
+
+
+
+https://github.com/git-for-windows/git/releases/download/v2.25.1.windows.1/Git-2.25.1-64-bit.exe
+Git Pull是从远端拉取最新的代码，Git Fetch是从远端拉取最新的分支，Git Push是将本地仓库的代码提交到远端
+Git Commit ->”master”，将本地代码提交到本地版本库（默认的分支是master）。
+
+
+提交时，会发现上图中的Status有几种值:
+
+　　　　　　　　 Unknown：新增的文件，也不在版本库
+
+　　　　　　　　 Added：新增的文件，在版本库
+
+　　　　　　　　 Modified：文件修改，在版本库
+
+ 　　　　　　　   Missing：文件被删除，在版本库
+
+
